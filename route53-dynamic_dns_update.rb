@@ -48,7 +48,7 @@ hostname_public = Net::HTTP.get(URI.parse("#{metadata}/public-hostname"))
 
 records = [
   { :alias => "#{hostname}-private.#{domain}.", :target => hostname_local  },
-  { :alias => "#{hostname}.#{domain}.",   :target => hostname_public }
+  { :alias => "#{hostname}.#{domain}.",         :target => hostname_public }
 ]
 
 record_sets = AWS::Route53::HostedZone.new(zone).rrsets
