@@ -47,7 +47,7 @@ hostname_local  = Net::HTTP.get(URI.parse("#{metadata}/local-hostname"))
 hostname_public = Net::HTTP.get(URI.parse("#{metadata}/public-hostname"))
 
 records = [
-  { :alias => "#{hostname}.p.#{domain}.", :target => hostname_local  },
+  { :alias => "#{hostname}-private.#{domain}.", :target => hostname_local  },
   { :alias => "#{hostname}.#{domain}.",   :target => hostname_public }
 ]
 
