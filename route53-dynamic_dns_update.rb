@@ -44,8 +44,8 @@ ttl      = config['ttl']
 
 metadata = 'http://169.254.169.254/latest/meta-data'
 
-hostname_local  = Net::HTTP.get(URI.parse("#{metadata}/local-hostname"))
-hostname_public = Net::HTTP.get(URI.parse("#{metadata}/public-hostname"))
+hostname_local = Net::HTTP.get(URI.parse("#{metadata}/local-hostname"))
+public_ipv4    = Net::HTTP.get(URI.parse("#{metadata}/public-ipv4"))
 
 local_record = {
   :alias => "#{hostname}-private.#{domain}.",
@@ -54,23 +54,23 @@ local_record = {
 
 public_record = {
   :alias  => "#{hostname}.#{domain}.",
-  :target => hostname_public
+  :target => public_ipv4
 }
 
 records = []
 records.push local_record if hostname_local
-records.push public_record if hostname_public
+records.push public_record if public_ipv4
 
 record_sets = route53.hosted_zones[zone].resource_record_sets
 
 records.each do |record|
-  new_record = record_sets[record[:alias], 'CNAME']
+  new_record = record_sets[record[:alias], 'A']
 
   new_record.delete if new_record.exists?
 
   new_record = {
     :name    => record[:alias],
-    :type    => 'CNAME',
+    :type    => 'A',
     :options => {
       :ttl              => ttl,
       :resource_records => [{ :value => record[:target] }]
