@@ -4,10 +4,10 @@
 #
 # access_key_id:
 # secret_access_key:
-# domain: 
+# domain:
 # zone_id:
 # ttl:
-# 
+#
 # IAM permissions:
 #
 # {
@@ -26,37 +26,56 @@
 #   ]
 # }
 
+require 'facter'
 require 'aws-sdk'
 require 'net/http'
 
 config = YAML.load_file('/etc/aws-route53.conf')
 
-AWS.config({
+route53 = AWS::Route53.new({
   :access_key_id     => config['access_key_id'],
-  :secret_access_key => ['secret_access_key']
+  :secret_access_key => config['secret_access_key']
 })
 
 hostname = Facter.hostname
 domain   = config['domain']
-zone     = config['zone_id']
+zone     = config['zone']
 ttl      = config['ttl']
 
 metadata = 'http://169.254.169.254/latest/meta-data'
 
-hostname_local  = Net::HTTP.get(URI.parse("#{metadata}/local-hostname"))
-hostname_public = Net::HTTP.get(URI.parse("#{metadata}/public-hostname"))
+hostname_ipv4 = Net::HTTP.get(URI.parse("#{metadata}/local-ipv4"))
+public_ipv4    = Net::HTTP.get(URI.parse("#{metadata}/public-ipv4"))
 
-records = [
-  { :alias => "#{hostname}-private.#{domain}.", :target => hostname_local  },
-  { :alias => "#{hostname}.#{domain}.",         :target => hostname_public }
-]
+local_record = {
+  :alias  => "#{hostname}-private.#{domain}.",
+  :target => hostname_ipv4
+}
 
-record_sets = AWS::Route53::HostedZone.new(zone).rrsets
+public_record = {
+  :alias  => "#{hostname}.#{domain}.",
+  :target => public_ipv4
+}
+
+records = []
+records.push local_record  if hostname_ipv4
+records.push public_record if public_ipv4
+
+record_sets = route53.hosted_zones[zone].resource_record_sets
 
 records.each do |record|
-  new_record = record_sets[record[:alias], 'CNAME']
+  new_record = record_sets[record[:alias], 'A']
 
   new_record.delete if new_record.exists?
 
-  record_sets.create(record[:alias], 'CNAME', :ttl => ttl, :resource_records => [{:value => record[:target]}])
+  new_record = {
+    :name    => record[:alias],
+    :type    => 'A',
+    :options => {
+      :ttl              => ttl,
+      :resource_records => [{ :value => record[:target] }]
+    }
+  }
+
+  record_sets.create(new_record[:name], new_record[:type], new_record[:options])
 end
